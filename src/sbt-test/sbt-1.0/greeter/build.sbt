@@ -6,9 +6,9 @@ version := "1.0"
 
 enablePlugins(CxfPlugin)
 
-val CxfVersion = "3.1.14"
+val CxfVersion = "4.0.4"
 
-version in CXF := CxfVersion
+CXF / version := CxfVersion
 
 cxfDefaultArgs := Seq("-exsh", "true", "-validate")
 
