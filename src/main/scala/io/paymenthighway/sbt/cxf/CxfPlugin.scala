@@ -28,41 +28,64 @@ object CxfPlugin extends AutoPlugin {
 
   import autoImport._
 
+  protected[this] object CxfVersion {
+    def unapply(version: String): Option[(Int, Int, Int)] = {
+      val Version = """(\d+)\.(\d+)\.(\d+).*""".r
+      version match {
+        case Version(major, minor, patch) => Some((major.toInt, minor.toInt, patch.toInt))
+        case _ => None
+      }
+    }
+  }
+
   override def projectSettings: Seq[Def.Setting[_]] = baseProjectSettings
 
-  lazy val baseProjectSettings: Seq[Def.Setting[_]] = Seq(
+  private lazy val baseProjectSettings: Seq[Def.Setting[_]] = Seq(
     ivyConfigurations += CXF,
 
     libraryDependencies ++= Seq(
-      "org.apache.cxf" % "cxf-tools-wsdlto-core" % (version in CXF).value % CXF,
-      "org.apache.cxf" % "cxf-tools-wsdlto-databinding-jaxb" % (version in CXF).value % CXF,
-      "org.apache.cxf" % "cxf-tools-wsdlto-frontend-jaxws" % (version in CXF).value % CXF
-    ),
+      "org.apache.cxf" % "cxf-tools-wsdlto-core" % (CXF / version).value % CXF,
+      "org.apache.cxf" % "cxf-tools-wsdlto-databinding-jaxb" % (CXF / version).value % CXF,
+      "org.apache.cxf" % "cxf-tools-wsdlto-frontend-jaxws" % (CXF / version).value % CXF,
+    ) ++ ((CXF / version).value match {
+      case CxfVersion(4, _, _) => Seq(
+        "jakarta.jws" % "jakarta.jws-api" % "3.0.0",
+        "jakarta.xml.ws" % "jakarta.xml.ws-api" % "4.0.2",
+        "jakarta.xml.bind" % "jakarta.xml.bind-api" % "4.0.4",
+      )
+
+      case CxfVersion(3, minor, _) if minor > 2 => Seq(
+        "jakarta.jws" % "jakarta.jws-api" % "2.1.0",
+        "jakarta.xml.ws" % "jakarta.xml.ws-api" % "2.3.3",
+        "jakarta.xml.bind" % "jakarta.xml.bind-api" % "2.3.3",
+      )
+      case _ => throw new IllegalArgumentException("Unsupported CXF version")
+    }),
 
     cxfWSDLs := Nil,
     cxfDefaultArgs := Seq("-exsh", "true", "-validate"),
 
     // Test resources must be manually defined
-    cxfWSDLs in Test := Nil,
-    cxfDefaultArgs in Test := Seq("-exsh", "true", "-validate"),
+    Test / cxfWSDLs := Nil,
+    Test / cxfDefaultArgs := Seq("-exsh", "true", "-validate"),
 
-    managedClasspath in CXF := {
-      Classpaths.managedJars(CXF, (classpathTypes in CXF).value, update.value)
+    CXF / managedClasspath := {
+      Classpaths.managedJars(CXF, (CXF / classpathTypes).value, update.value)
     },
 
-    version in CXF := "3.3.4"
+    CXF / version := "4.1.3"
   ) ++
     inConfig(Compile)(settings) ++
     inConfig(Test)(settings)
 
   private val settings = Seq(
-    target in cxfGenerate := crossTarget.value / "cxf" / Defaults.nameForSrc(configuration.value.name),
+    cxfGenerate / target := crossTarget.value / "cxf" / Defaults.nameForSrc(configuration.value.name),
 
     cxfGenerate := Def.taskDyn {
       val s = streams.value
 
-      val basedir = (target in cxfGenerate).value
-      val classpath = (managedClasspath in CXF).value.files
+      val basedir = (cxfGenerate / target).value
+      val classpath = (CXF / managedClasspath).value.files
 
       val wsdlFiles = cxfWSDLs.value
 
@@ -107,7 +130,7 @@ object CxfPlugin extends AutoPlugin {
       }
     }.value,
     sourceGenerators += cxfGenerate.taskValue map { files =>
-      val filter = (excludeFilter in cxfGenerate).value
+      val filter = (cxfGenerate / excludeFilter).value
 
       files.filter {
         case file if !filter.accept(file) => true
@@ -117,13 +140,13 @@ object CxfPlugin extends AutoPlugin {
           false
       }
     },
-    managedSourceDirectories += (target in cxfGenerate).value,
+    managedSourceDirectories += (cxfGenerate / target).value,
 
-    excludeFilter in cxfGenerate := NothingFilter,
+     cxfGenerate / excludeFilter := NothingFilter,
 
-    cxfExcludeFilter := ExcludeFilter((target in cxfGenerate).value.getPath),
+    cxfExcludeFilter := ExcludeFilter((cxfGenerate / target).value.getPath),
 
-    clean in cxfGenerate := IO.delete((target in cxfGenerate).value)
+    cxfGenerate / clean := IO.delete((cxfGenerate / target).value)
   )
 
   private def callWsdl2java(key: String, output: File, arguments: Seq[String], classpath: Seq[File], logger: Logger)(
@@ -140,7 +163,7 @@ object CxfPlugin extends AutoPlugin {
 
     try {
       val instance = constructor.newInstance(arguments.toArray)
-      run.invoke(instance, ToolContext.newInstance().asInstanceOf[AnyRef])
+      run.invoke(instance, ToolContext.getConstructor().newInstance().asInstanceOf[AnyRef])
     } catch { case e: Throwable =>
       logger.error("Failed to compile wsdl with exception: " + e.getMessage)
       logger.trace(e)

@@ -8,14 +8,14 @@ enablePlugins(CxfPlugin)
 
 val CxfVersion = "3.3.4"
 
-version in CXF := CxfVersion
+CXF / version := CxfVersion
 
 cxfDefaultArgs := Seq("-exsh", "true", "-validate")
 
 cxfWSDLs := Seq(
-  Wsdl("HelloWorld", (resourceDirectory in Compile).value / "wsdl/HelloWorld.wsdl", Seq(
+  Wsdl("HelloWorld", (Compile / resourceDirectory).value / "wsdl/HelloWorld.wsdl", Seq(
     "-wsdlLocation", "classpath:wsdl/HelloWorld.wsdl",
-    "-b", ((resourceDirectory in Compile).value / "wsdl/bindings.xjb").getPath
+    "-b", ((Compile / resourceDirectory).value / "wsdl/bindings.xjb").getPath
   ))
 )
 
