@@ -59,6 +59,12 @@ object CxfPlugin extends AutoPlugin {
         "jakarta.xml.ws" % "jakarta.xml.ws-api" % "2.3.3",
         "jakarta.xml.bind" % "jakarta.xml.bind-api" % "2.3.3",
       )
+
+      case CxfVersion(3, _, _) => Seq(
+        "javax.xml.ws" % "jaxws-api" % "2.3.1",
+        "javax.jws" % "javax.jws-api" % "1.1",
+        "javax.xml.bind" % "jaxb-api" % "2.3.1",
+      )
       case _ => throw new IllegalArgumentException("Unsupported CXF version")
     }),
 
@@ -152,7 +158,7 @@ object CxfPlugin extends AutoPlugin {
   private def callWsdl2java(key: String, output: File, arguments: Seq[String], classpath: Seq[File], logger: Logger)(
     WSDLToJava: Class[_],
     ToolContext: Class[_]
-  ) {
+  ): Unit = {
     logger.info("WSDL: key=" + key + ", args=" + arguments.mkString(" "))
     logger.info("Compiling WSDL...")
 
